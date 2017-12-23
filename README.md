@@ -1,9 +1,10 @@
 # Duplicacy Sandbox
 
 The `Makefile` in this directory builds and maintains a very basic
-Duplicacy setup using the `storage` subdirectory for storage.  The
-area to be backed up is initialized in the `root` subdirectory and
-contains a `.duplicacy` directory which may be customized.
+Duplicacy setup for experimentation.  The area to be backed up is
+initialized in the `root` subdirectory and contains a `.duplicacy`
+directory which may be customized.  Backups are stored in the
+`storage` directory.
 
 To build, do a `make` or a `make populate` (see descriptions below).
 
@@ -21,4 +22,3 @@ Useful targets:
  * `list` - Lists all revisions
  * `files` - Lists all revisions and files
  * `prune` - Does an exhaustive prune
-
