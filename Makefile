@@ -2,7 +2,16 @@
 # Makefile for Duplicacy Sandbox
 #
 
+# Configure the following to taste:
+
+# Name of duplicacy program to run
 DUPLICACY=duplicacy
+
+# Names of additional storage directories
+# EXTRA_STORAGE=secondary
+
+# End of configurables
+
 
 default: build
 
@@ -11,18 +20,34 @@ default: build
 # Construction / Destruction
 #
 
-STORAGE=storage
-$(STORAGE):
+STORAGE_NAMES=default $(EXTRA_STORAGE)
+
+STORAGE_DIR=storage
+STORAGES=$(STORAGE_NAMES:%=$(STORAGE_DIR)/%)
+$(STORAGES):
 	mkdir -p $@
-TO_CLEAN += $(STORAGE)
+TO_CLEAN += $(STORAGE_DIR)
 
 
 ROOT=root
-$(ROOT): $(STORAGE)
+$(ROOT): $(STORAGES)
 	mkdir -p $@
-	if [ ! -e "$@/.duplicacy" ] ; \
+	@if [ ! -e "$@/.duplicacy" ] ; \
 	then \
-	    cd $@ && $(DUPLICACY) init sandbox $(shell cd $(STORAGE) && pwd) ; \
+	    for STORAGE in $(STORAGE_NAMES) ; \
+	    do \
+	        STORAGE_NAME="$(STORAGE_DIR)/$${STORAGE}" ; \
+	        STORAGE_PATH=$$(cd "$${STORAGE_NAME}" && pwd) ; \
+	        case $$STORAGE in \
+	          *default) \
+	            ( cd $@ && $(DUPLICACY) init sandbox "$${STORAGE_PATH}" ) \
+	            ;; \
+	          *) \
+	            ( cd $@ && $(DUPLICACY) add "$${STORAGE}" \
+	                sandbox "$${STORAGE_PATH}" ) \
+	            ;; \
+	        esac ; \
+	    done ; \
 	fi
 TO_CLEAN += $(ROOT)
 
@@ -56,16 +81,33 @@ clean:
 
 # Run a backup
 backup: build
-	cd $(ROOT) && $(DUPLICACY) -v backup -stats
+	@for STORAGE in $(STORAGE_NAMES) ; \
+	do \
+	    printf "\n#\n# Backing up to $$STORAGE\n#\n\n" ; \
+	    ( cd $(ROOT) && $(DUPLICACY) -v backup -stats \
+	        -storage "$${STORAGE}" ) ; \
+	done
 
 # List all revisions and files
 files: build
-	cd $(ROOT) && $(DUPLICACY) -v list -files
+	@for STORAGE in $(STORAGE_NAMES) ; \
+	do \
+	    printf "\n#\n# Files in $$STORAGE\n#\n\n" ; \
+	    ( cd $(ROOT) && $(DUPLICACY) -v list -files ) ; \
+	done
 
 # List all revisions
 list: build
-	cd $(ROOT) && $(DUPLICACY) -v list
+	@for STORAGE in $(STORAGE_NAMES) ; \
+	do \
+	    printf "\n#\n# Revisions in $$STORAGE\n#\n\n" ; \
+	    ( cd $(ROOT) && $(DUPLICACY) -v list ) ; \
+	done
 
 # Do an exhaustive pruning
 prune: build
-	cd $(ROOT) && $(DUPLICACY) -v prune -exhaustive
+	@for STORAGE in $(STORAGE_NAMES) ; \
+	do \
+	    printf "\n#\n# Pruning $$STORAGE\n#\n\n" ; \
+	    ( cd $(ROOT) && $(DUPLICACY) -v prune -exhaustive ) ; \
+	done
