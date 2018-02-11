@@ -5,12 +5,25 @@
 # Configure the following to taste:
 
 # Name of duplicacy program to run
-DUPLICACY=duplicacy
+DUPLICACY:=$(shell pwd -P)/duplicacy
 
 # Names of additional storage directories
 # EXTRA_STORAGE=secondary
 
+# Number of revisions to create
+REVS=5
+
+
+# Number of revisions to create
+FILES=5
+
+
 # End of configurables
+
+# These are a POSIX-compatible alternative to seq(1)
+REVS_SEQ:=$(shell awk -v SEQEND=$(REVS) 'BEGIN { for(i=1;i<=SEQEND;i++) print i }')
+FILES_SEQ:=$(shell awk -v SEQEND=$(FILES) 'BEGIN { for(i=1;i<=SEQEND;i++) print i }')
+
 
 
 default: build
@@ -59,11 +72,12 @@ build: $(ROOT)
 # Populate the root with some files, revise them and make backups
 # after each step.
 populate: build
-	for REVISION in 1 2 3 4 5 ; \
+	for REVISION in $(REVS_SEQ) ; \
 	do \
-	    for FILE in 1 2 3 4 5 ; \
+	    for FILE in $(FILES_SEQ) ; \
 	    do \
 	        echo "This is file $$FILE, revision $$REVISION" \
+	            "at $$(date)" \
 	            >> "$(ROOT)/file$$FILE" ; \
 	    done ; \
 	    $(MAKE) backup ; \
@@ -104,6 +118,7 @@ list: build
 	    ( cd $(ROOT) && $(DUPLICACY) -v list ) ; \
 	done
 
+
 # Do an exhaustive pruning
 prune: build
 	@for STORAGE in $(STORAGE_NAMES) ; \
@@ -111,3 +126,14 @@ prune: build
 	    printf "\n#\n# Pruning $$STORAGE\n#\n\n" ; \
 	    ( cd $(ROOT) && $(DUPLICACY) -v prune -exhaustive ) ; \
 	done
+
+
+# Remove the first revision, make a backup and then prune.
+chop: build
+	( cd $(ROOT) && $(DUPLICACY) -v list ) \
+	| egrep -e 'revision [0-9]+ created' \
+	| sed -e 's/^.*revision \([0-9]\+\).*$$/\1/' \
+	| head -1 \
+	| ( cd $(ROOT) && xargs -n 1 $(DUPLICACY) -v prune -r )
+	$(MAKE) backup
+	$(MAKE) prune
